@@ -16,10 +16,15 @@ const arg = (k, d) => { const i = rest.indexOf(`--${k}`); return i >= 0 ? rest[i
 useNetwork(profile);
 if (!PARAMS.multiAsset) throw new Error(`${profile} is not a multi-asset network`);
 
+// --to faucet | bridge | <address>   (bridge: BRIDGE_SEED_FILE or ~/.config/selen/bridge.seed, created when missing)
 let to = arg("to", "faucet");
-if (to === "faucet") {
-  const f = join(homedir(), ".config", "selen", "faucet.seed");
-  if (!existsSync(f)) throw new Error("no faucet seed yet: start the node once, or pass --to <address>");
+if (to === "faucet" || to === "bridge") {
+  const f = to === "bridge" ? process.env.BRIDGE_SEED_FILE || join(homedir(), ".config", "selen", "bridge.seed") : join(homedir(), ".config", "selen", "faucet.seed");
+  if (!existsSync(f)) {
+    if (to === "faucet") throw new Error("no faucet seed yet: start the node once, or pass --to <address>");
+    const { loadSeed } = await import("../server/wallet.mjs");
+    loadSeed(f);
+  }
   to = keysFromSeed(hexToBytes(readFileSync(f, "utf8").trim())).quantum;
 }
 const addr = decodeAddress(to);
@@ -44,7 +49,7 @@ if (!out.length) throw new Error("give at least one amount, e.g. --usdg 1000000"
 const tx = { v: 2, asset: 0, cb: 0, in: [], out, fee: 0n, rp: [], sig: [] };
 const json = txToJson(tx);
 parseTx(json); // round-trip check
-const file = new URL(`../config/genesis-${profile}.json`, import.meta.url);
+const file = arg("out") ? new URL(`file://${arg("out").startsWith("/") ? "" : process.cwd() + "/"}${arg("out")}`) : new URL(`../config/genesis-${profile}.json`, import.meta.url);
 writeFileSync(file, JSON.stringify({ network: PARAMS.network, to, reserves, txs: [json] }, null, 1) + "\n");
 console.log(`✓ ${file.pathname}\n  reserve tx ${txId(parseTx(json)).slice(0, 16)}…  →  ${to.slice(0, 22)}…`);
 for (const r of reserves) console.log(`  ${r.display} ${r.ticker} in ${r.outputs} outputs`);

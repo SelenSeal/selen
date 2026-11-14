@@ -17,7 +17,8 @@ node tools/miner.mjs --node <url> --address <selen address> --threads 4
 | `lib/tx.mjs` | wire format, canonical encoding, build + verify transfers, block headers |
 | `lib/chain.mjs` | SQLite chain state, consensus rules, LWMA difficulty, mempool, rollback |
 | `lib/params.mjs` | network profiles (testnet, beta), assets, emission, amount formatting |
-| `server/` | HTTP API, built-in miner, faucet wallet, peer sync |
+| `server/` | HTTP API, built-in miner, node wallets (faucet, bridge), bridge service, peer sync |
+| `contracts/` | `SelenBridge.sol` (Robinhood Chain side of the bridge) with Foundry tests |
 | `public/` | site: landing, explorer, wallet, mine, docs, whitepaper |
 | `tools/` | `build.mjs` (browser bundle), `genesis.mjs` (multi-asset reserve), `miner.mjs`, tests below |
 
@@ -34,6 +35,26 @@ reserves a bridge releases from sit in the genesis block with public amounts.
 node tools/genesis.mjs beta --to faucet --selen 1000000 --usdg 1000000 --split 64   # writes config/genesis-beta.json
 NETWORK=beta PORT=9311 npm start                                                     # keeps its chain in data-beta/
 ```
+
+## Bridge (Robinhood Chain ⇄ SELEN)
+
+`contracts/src/SelenBridge.sol` holds what is locked on Robinhood Chain. `lock(token, amount, dest)` takes the
+tokens (`dest` = sha256 of the receiving SELEN address); the node's bridge service (`server/bridge.mjs`, run with
+`NETWORK=beta BRIDGE=1`) pays the same amount out of the reserve as a sealed output on SELEN. Coins come back by
+sending them to the bridge's SELEN address with a sealed memo naming the Robinhood address; after the SELEN
+confirmations the service calls `release`, which the contract allows once per SELEN reference, never above what is
+locked, and within a per-token daily limit. The contract owner has no way to move locked funds. `/bridge` is the page.
+
+```
+(cd contracts && forge install foundry-rs/forge-std --no-git)                  # once
+(cd contracts && forge test)                                                   # unit + fuzz
+(cd contracts && forge test --match-contract Fork --fork-url https://robinhood-rpc.publicnode.com)   # real USDG
+node tools/bridge-e2e.mjs                                                      # anvil + node, both directions, restart
+node tools/bridge-ui-test.mjs                                                  # the /bridge page with an injected wallet
+```
+
+Bridge environment: `BRIDGE_RPC`, `BRIDGE_CONTRACT`, `BRIDGE_START_BLOCK`, `BRIDGE_TOKENS` (comma list),
+`BRIDGE_OPERATOR_KEY_FILE`, `BRIDGE_SEED_FILE`, `BRIDGE_RH_CONFIRMATIONS`, `BRIDGE_POLL_MS`, `GENESIS_FILE`.
 
 ## Tests
 

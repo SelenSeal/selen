@@ -1,0 +1,10 @@
+{
+ "chainId": 4663,
+ "contract": "0x7Fb1acBF8E9D023C346f207aed8BfeFd70e10515",
+ "startBlock": 114152464,
+ "owner": "0x2FfE11e8EA24d85936E35572254008BCD4C1a876",
+ "operator": "0x331D3a769023435bFb388e8E29aCE65d5e93B544",
+ "tokens": [
+  "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+ ]
+}

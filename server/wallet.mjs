@@ -15,27 +15,30 @@ export function loadSeed(file) {
   return hexToBytes(readFileSync(file, "utf8").trim());
 }
 
-const rowToOut = (o) => ({
+export const rowToOut = (o) => ({
   P: hexToBytes(o.P), C: hexToBytes(o.C), vt: o.vt,
   R: o.R ? hexToBytes(o.R) : undefined, kem: o.kem ? hexToBytes(o.kem) : undefined,
-  ek: o.ek ? hexToBytes(o.ek) : undefined, amount: o.amount ?? undefined,
+  ek: o.ek ? hexToBytes(o.ek) : undefined, amount: o.amount ?? undefined, m: o.m ? hexToBytes(o.m) : undefined,
 });
 
 export class NodeWallet {
   // several wallets can live on one node (faucet, bridge reserve): each gets its own table and scan cursor;
   // the unnamed one is the faucet and keeps the original table
-  constructor(chain, seed, { log = console.log, name = "" } = {}) {
+  constructor(chain, seed, { log = console.log, name = "", onReceive } = {}) {
     this.chain = chain;
     this.keys = keysFromSeed(seed);
     this.log = log;
+    this.onReceive = onReceive; // (output) => void, for every output this wallet finds while scanning
     const T = name ? `wallet_outputs_${name.replace(/\W/g, "")}` : "wallet_outputs";
     this.scanKey = name ? `scan:${name}` : "scan";
     const db = chain.db;
     db.exec(`CREATE TABLE IF NOT EXISTS ${T} (gidx INTEGER PRIMARY KEY, height INTEGER NOT NULL, v TEXT NOT NULL, ki TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);`);
-    if (!db.prepare(`PRAGMA table_info(${T})`).all().some((c) => c.name === "asset")) db.exec(`ALTER TABLE ${T} ADD COLUMN asset INTEGER NOT NULL DEFAULT 0`);
+    const wcols = db.prepare(`PRAGMA table_info(${T})`).all().map((c) => c.name);
+    if (!wcols.includes("asset")) db.exec(`ALTER TABLE ${T} ADD COLUMN asset INTEGER NOT NULL DEFAULT 0`);
+    if (!wcols.includes("memo")) db.exec(`ALTER TABLE ${T} ADD COLUMN memo TEXT`);
     this.q = {
-      ins: db.prepare(`INSERT OR IGNORE INTO ${T} (gidx, height, v, ki, asset) VALUES (?,?,?,?,?)`),
+      ins: db.prepare(`INSERT OR IGNORE INTO ${T} (gidx, height, v, ki, asset, memo) VALUES (?,?,?,?,?,?)`),
       all: db.prepare(`SELECT * FROM ${T} ORDER BY gidx`),
       getMeta: db.prepare("SELECT v FROM meta WHERE k = ?"),
       setMeta: db.prepare("INSERT OR REPLACE INTO meta VALUES (?,?)"),
@@ -59,7 +62,10 @@ export class NodeWallet {
       if (!rows.length) break;
       for (const o of rows) {
         const got = scanOutput(this.keys, rowToOut(o));
-        if (got) this.q.ins.run(o.gidx, o.height, got.v.toString(), bytesToHex(keyImage(got.x, hexToBytes(o.P)).toBytes()), o.asset || 0);
+        if (got) {
+          this.q.ins.run(o.gidx, o.height, got.v.toString(), bytesToHex(keyImage(got.x, hexToBytes(o.P)).toBytes()), o.asset || 0, got.memo ? bytesToHex(got.memo) : null);
+          this.onReceive?.({ gidx: o.gidx, height: o.height, txid: o.txid, pos: o.pos, v: got.v, asset: o.asset || 0, memo: got.memo || null });
+        }
         from = o.gidx + 1;
       }
     }
@@ -80,7 +86,7 @@ export class NodeWallet {
   }
 
   /** Pay `amount` atomic units of `asset` to `to` (address string). Returns { id, fee }. */
-  send(to, amount, asset = 0) {
+  send(to, amount, asset = 0, { memo } = {}) {
     const dest = decodeAddress(to);
     const pending = this.chain.pendingKeyImages();
     const cutoff = this.chain.matureCutoff(this.chain.tip().height + 1);
@@ -106,7 +112,7 @@ export class NodeWallet {
       });
       return { gidx: o.gidx, v: got.v, mask: got.mask, x: got.x, P: hexToBytes(row.P), C: hexToBytes(row.C), ring };
     });
-    const { tx, fee } = buildTx({ inputs, dests: [{ addr: dest, v: amount }], change: decodeAddress(this.keys.quantum), asset });
+    const { tx, fee } = buildTx({ inputs, dests: [{ addr: dest, v: amount, ...(memo ? { memo } : {}) }], change: decodeAddress(this.keys.quantum), asset });
     const res = this.chain.addToMempool(txToJson(tx));
     return { id: res.id, fee: fee.toString() };
   }

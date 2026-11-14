@@ -16,6 +16,7 @@ import { startMiner } from "./server/miner.mjs";
 import { NodeWallet, loadSeed } from "./server/wallet.mjs";
 import { createApi } from "./server/api.mjs";
 import { startSync } from "./server/sync.mjs";
+import { startBridge } from "./server/bridge.mjs";
 import { siteConfig } from "./server/config.mjs";
 import { PARAMS, useNetwork } from "./lib/params.mjs";
 
@@ -30,7 +31,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
 // NETWORK=testnet (default, the public testnet) | beta (SELEN + USDG). Each network keeps its own data folder.
 useNetwork(process.env.NETWORK || "testnet");
-const genesisFile = join(HERE, "config", `genesis-${PARAMS.profile}.json`);
+const genesisFile = process.env.GENESIS_FILE || join(HERE, "config", `genesis-${PARAMS.profile}.json`);
 const genesis = PARAMS.multiAsset ? (existsSync(genesisFile) ? JSON.parse(readFileSync(genesisFile, "utf8")).txs : []) : [];
 const chain = new Chain({ dataDir: process.env.DATA_DIR || join(HERE, PARAMS.profile === "testnet" ? "data" : `data-${PARAMS.profile}`), pow: powHash, log, genesis });
 let faucet = null, miner = null, peer = null;
@@ -45,6 +46,20 @@ if (minerOn) {
 }
 if (PEER) peer = startSync(chain, PEER, { log });
 const api = createApi({ chain, miner, faucet, peer, trustProxy: process.env.TRUST_PROXY === "1", isPublic: PUBLIC, log });
+// BRIDGE=1 (multi-asset networks): the Robinhood Chain bridge, see server/bridge.mjs
+let bridge = null;
+if (process.env.BRIDGE === "1") {
+  const env = process.env, cfg = join(homedir(), ".config", "selen");
+  bridge = await startBridge({
+    chain, log, dataDir: env.DATA_DIR || join(HERE, `data-${PARAMS.profile}`),
+    rpc: env.BRIDGE_RPC || "https://robinhood-rpc.publicnode.com", publicRpc: env.BRIDGE_PUBLIC_RPC,
+    contract: env.BRIDGE_CONTRACT, startBlock: +(env.BRIDGE_START_BLOCK || 0),
+    operatorKey: readFileSync(env.BRIDGE_OPERATOR_KEY_FILE || join(cfg, "bridge-operator.key"), "utf8").trim(),
+    seedFile: env.BRIDGE_SEED_FILE || join(cfg, "bridge.seed"),
+    tokens: (env.BRIDGE_TOKENS || "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168").split(",").map((s) => s.trim()).filter(Boolean),
+    rhConfirmations: +(env.BRIDGE_RH_CONFIRMATIONS || 3), pollMs: +(env.BRIDGE_POLL_MS || 4000),
+  });
+}
 
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
@@ -54,7 +69,7 @@ const TYPES = {
 };
 const ROUTES = {
   "/": "/index.html", "/explorer": "/explorer.html", "/wallet": "/wallet.html", "/mine": "/mine.html",
-  "/docs": "/docs.html", "/whitepaper": "/whitepaper.html", "/faucet": "/wallet.html",
+  "/docs": "/docs.html", "/whitepaper": "/whitepaper.html", "/faucet": "/wallet.html", "/bridge": "/bridge.html",
 };
 
 function csp(path, data) {
@@ -91,6 +106,7 @@ async function sendFile(req, res, file, path) {
 
 async function serve(req, res) {
   const url = new URL(req.url, "http://x");
+  if (bridge && (await bridge.handle(req, res, url))) return;
   if (await api(req, res, url)) return;
   let path;
   try { path = decodeURIComponent(url.pathname); } catch { res.writeHead(400).end("Bad request"); return; }

@@ -120,3 +120,34 @@ test("rollback keeps indices inside each asset consistent", () => {
   assert.ok(chain.outputByAidx(USDG, n - 1));
   assert.equal(chain.outputByAidx(USDG, n), undefined);
 });
+
+test("sealed memo: only the receiver reads it, it is bound to the signature, and v1 refuses it", () => {
+  const memo = new Uint8Array(32); memo[0] = 1; memo.set(C.hexToBytes("00112233445566778899aabbccddeeff00112233"), 1);
+  for (const kind of ["quantum", "classic"]) {
+    const { out } = C.makeOutput(C.decodeAddress(bob[kind]), 77n, { memo });
+    assert.deepEqual(C.scanOutput(bob, out).memo, memo);
+    assert.equal(C.scanOutput(alice, out), null);
+    assert.notDeepEqual(out.m, memo); // on chain it is sealed
+  }
+  const wa = new NodeWallet(chain, aliceSeed, { log: () => {}, name: "alice" });
+  const r = wa.send(bob.quantum, parseAsset("2", USDG), USDG, { memo });
+  const m = chain.mempool.get(r.id);
+  const withMemo = m.tx.out.filter((o) => o.m);
+  assert.equal(withMemo.length, 1);
+  // flipping one memo byte changes what was signed: the ring signature no longer verifies
+  const j = T.txToJson(m.tx);
+  const k = j.out.findIndex((o) => o.m);
+  j.out[k].m = (j.out[k].m[0] === "0" ? "1" : "0") + j.out[k].m.slice(1);
+  const forged = T.parseTx(j);
+  const members = chain.ringMembers(forged, chain.tip().height + 1);
+  assert.equal(T.verifyTxCrypto(forged, members).ok, false);
+  // bob's wallet records the memo once the transfer lands
+  const got = [];
+  mine();
+  // a fresh wallet of bob's (its own cursor) scans from the start and hears every receive, memo included
+  const wb = new NodeWallet(chain, bobSeed, { log: () => {}, name: "bobmemo" });
+  wb.onReceive = (o) => got.push(o);
+  wb.q.setMeta.run(wb.scanKey, "0");
+  wb.catchUp();
+  assert.ok(got.some((o) => o.asset === USDG && o.memo && C.bytesToHex(o.memo) === C.bytesToHex(memo)));
+});

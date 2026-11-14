@@ -34,7 +34,9 @@ onmessage = async (e) => {
           ring: members.map((r) => ({ gidx: r.g, P: L.hexToBytes(r.P), C: L.hexToBytes(r.C) })) });
       }
       const change = L.decodeAddress(keys.quantum);
-      const { tx, fee, size } = L.buildTx({ inputs, dests: [{ addr: dest, v: BigInt(m.amount) }], change, asset });
+      // optional sealed memo for the receiver (the bridge reads the Robinhood address from it)
+      const memo = m.memo ? L.hexToBytes(m.memo) : undefined;
+      const { tx, fee, size } = L.buildTx({ inputs, dests: [{ addr: dest, v: BigInt(m.amount), ...(memo ? { memo } : {}) }], change, asset });
       // (no `id` key here: reply() puts the request id back, and overwriting it left every send hanging)
       return reply({ ok: true, tx: L.txToJson(tx), fee: fee.toString(), size, txid: L.txId(tx) });
     }

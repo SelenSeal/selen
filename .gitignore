@@ -20,3 +20,7 @@ public/fonts/*
 !public/fonts/geist-mono-*.woff2
 !public/fonts/OFL-Outfit.txt
 !public/fonts/OFL-GeistMono.txt
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/

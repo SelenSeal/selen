@@ -175,7 +175,7 @@ export function createApi({ chain, miner, faucet, peer, trustProxy = false, isPu
         const rows = chain.outputsFrom(from, limit).map((o) => {
           const r = { g: o.gidx, h: o.height, P: o.P, C: o.C, vt: o.vt };
           if (o.R) r.R = o.R; if (o.kem) r.kem = o.kem; if (o.ek) r.ek = o.ek; if (o.amount) r.amount = o.amount;
-          if (PARAMS.multiAsset) { r.a = o.asset; r.ai = o.aidx; }
+          if (PARAMS.multiAsset) { r.a = o.asset; r.ai = o.aidx; if (o.m) r.m = o.m; }
           return r;
         });
         return send(res, 200, { tip: chain.tip().height, eligible: chain.eligibleCount(), outputs: rows }), true;
@@ -192,7 +192,7 @@ export function createApi({ chain, miner, faucet, peer, trustProxy = false, isPu
           if (!o) return null;
           const r = { g: o.gidx, P: o.P, C: o.C, h: o.height };
           if (PARAMS.multiAsset) { r.a = o.asset; r.ai = o.aidx; }
-          if (full) { r.vt = o.vt; if (o.R) r.R = o.R; if (o.kem) r.kem = o.kem; if (o.ek) r.ek = o.ek; if (o.amount) r.amount = o.amount; }
+          if (full) { r.vt = o.vt; if (o.R) r.R = o.R; if (o.kem) r.kem = o.kem; if (o.ek) r.ek = o.ek; if (o.amount) r.amount = o.amount; if (o.m) r.m = o.m; }
           return r;
         });
         return send(res, 200, { members: out }), true;
