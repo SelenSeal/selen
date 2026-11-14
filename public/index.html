@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SELEN · sealed now, sealed after Q-day</title>
+<meta name="description" content="SELEN is a private proof-of-work chain. Every transfer hides sender, receiver and amount, and receivers are sealed with ML-KEM-768 so the record stays closed after Q-day.">
+<meta property="og:title" content="SELEN · sealed now, sealed after Q-day">
+<meta property="og:description" content="A private proof-of-work chain. Ring of 16, one-time keys, hidden amounts, ML-KEM-768 quantum addresses.">
+<meta name="theme-color" content="#040503">
+<link rel="icon" href="/favicon-32.png?v=5" type="image/png" sizes="32x32"><link rel="icon" href="/favicon.png?v=5" type="image/png" sizes="64x64"><link rel="apple-touch-icon" href="/apple-touch-icon.png?v=5">
+<link rel="preload" href="/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/css/site.css">
+<link rel="stylesheet" href="/css/landing.css">
+<script src="/config.js"></script>
+</head>
+<body class="has-ann landing">
+<header class="top"></header>
+<div class="ann"><b>Testnet</b><span>SELEN testnet is running: every transfer private, quantum receivers sealed with ML-KEM-768.</span><a href="/whitepaper">Read the paper</a></div>
+<div class="prog" aria-hidden="true"><svg viewBox="0 0 54 54"><circle cx="27" cy="27" r="25" fill="none" stroke="currentColor" stroke-opacity=".25"/><circle id="pc" cx="27" cy="27" r="25" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="157.1" stroke-dashoffset="157.1"/></svg><span id="pt">0%</span></div>
+<canvas id="gl-dock" aria-hidden="true"></canvas>
+
+<div class="stage">
+  <section id="hero">
+    <canvas id="gl" aria-hidden="true"></canvas>
+    <div class="hvig" aria-hidden="true"></div>
+    <div class="hfoot"><h1>Sealed now. <b>Sealed after Q-day.</b></h1><div class="row"><a class="b l" href="/wallet">Open Wallet</a><a class="b" href="/docs">Documentation</a></div></div>
+    <div class="cue"><i></i>Scroll to explore</div>
+  </section>
+
+  <!-- the seal: quantum rain breaks on a lattice dome, every real block sends a wave over it -->
+  <section class="seal" id="seal">
+    <canvas class="shield" id="shield" aria-hidden="true"></canvas>
+    <div class="seal-pill" id="seal-pill">
+      <span class="sp-brand"><img src="/img/mark.webp" width="30" height="30" alt="">selen</span>
+      <b>Sealed after Q-day</b>
+      <code>ML-KEM-768 · FIPS 203</code>
+    </div>
+    <p class="seal-live"><i></i><span id="seal-live">connecting to node</span></p>
+  </section>
+</div>
+
+<!-- why: lights up word by word as it is read -->
+<section class="why" id="why">
+  <div class="wrap why-grid">
+    <p class="why-a" data-words>A ledger is a copy that never goes away. Every node keeps one, and so can anyone else.</p>
+    <div class="why-b">
+      <p data-words>Archive the transfers today, wait for a quantum computer that runs Shor's algorithm, and the elliptic-curve keys that hid receivers and amounts in older private coins stop hiding anything that was ever written down.</p>
+      <p data-words>SELEN seals receivers and amounts with lattices from the very first block, so every archived copy stays a copy of nothing.</p>
+    </div>
+  </div>
+  <div class="why-cta"><a class="b l glow" href="/wallet">Send a private payment</a><span class="cap">private by default · sealed after Q-day</span></div>
+</section>
+
+<!-- lifecycle: a bright chamber, the S over a pedestal, told while scrolling -->
+<section class="life" id="lifecycle">
+  <div class="chamber" id="chamber">
+    <div class="ch-pin">
+      <canvas id="gl2" aria-hidden="true"></canvas><img class="ch-fallback" src="/img/mark-512.webp" alt="" width="260" height="260">
+      <div class="ch-text">
+      <span class="ch-cap">lifecycle of a payment</span>
+      <h2>How a payment <em>disappears</em> into SELEN</h2>
+      <div class="ch-steps">
+        <div class="cs on" data-i="0"><i class="cs-bar"></i><span class="n">01 · wallet</span><h3>Encapsulate</h3><p>The wallet runs ML-KEM-768 against the receiver's key and turns the shared secret into a one-time address.</p></div>
+        <div class="cs" data-i="1"><i class="cs-bar"></i><span class="n">02 · wallet</span><h3>Commit and sign</h3><p>The amount becomes a commitment with a 48-bit range proof, and the wallet signs inside a ring of sixteen.</p></div>
+        <div class="cs" data-i="2"><i class="cs-bar"></i><span class="n">03 · network</span><h3>Seal and find</h3><p>Miners fold it into a block. The receiver tries every new capsule, and exactly one of them opens.</p></div>
+      </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- node: two cryptexes. The miner keeps guessing; each real block locks it onto that block's hash,
+     the hash crosses over and the node rolls to the same combination to verify it -->
+<section class="node" id="node">
+  <div class="wrap">
+    <div class="hd"><h2>Every node is <em>a judge</em></h2><p>Nobody signs a block, so there is no validator key to steal. Proof of work orders the chain, and every node re-checks every ring, range proof and key image on its own.</p></div>
+    <div class="vault" id="vault">
+      <span class="vx-beam" aria-hidden="true"><i></i></span>
+      <div class="vx" id="vx-miner">
+        <div class="vx-body" aria-hidden="true"><span class="vx-cap l"></span><div class="vx-rings"></div><span class="vx-cap r"></span><span class="vx-shade"></span><span class="vx-win"></span></div>
+        <div class="vx-read"><span class="vx-st"><i></i><em>guessing</em></span><code>········</code></div>
+        <div class="vx-tx">
+          <h3>Miner</h3>
+          <p>Mine in the browser at /mine or with the command-line miner. Argon2id fills two mebibytes per try, so an ordinary CPU stays in the race, and every reward lands at your own private address.</p>
+          <span class="vx-stat"><i></i>network hashrate <b id="net-hr">—</b></span>
+        </div>
+      </div>
+      <div class="vx" id="vx-node">
+        <div class="vx-body" aria-hidden="true"><span class="vx-cap l"></span><div class="vx-rings"></div><span class="vx-cap r"></span><span class="vx-shade"></span><span class="vx-win"></span></div>
+        <div class="vx-read"><span class="vx-st"><i></i><em>waiting for the node</em></span><code>········</code></div>
+        <div class="vx-tx">
+          <h3>Full node</h3>
+          <p>Node, explorer, wallet and miner are one open-source Node.js program. Clone it, run npm start, and you hold and verify the whole chain yourself.</p>
+          <span class="vx-stat"><i></i>blocks verified <b data-stat="height">—</b></span>
+        </div>
+      </div>
+    </div>
+    <div class="vx-cta"><a class="b l glow" id="mine-btn" href="/mine">Start mining SELEN</a><span class="cap">each lock is a real block from the running testnet</span></div>
+  </div>
+</section>
+
+<!-- hidden: a drifting rail of lenses -->
+<section class="hid" id="hidden">
+  <div class="wrap hd"><h2>Seven locks on <em>every transfer</em></h2><p>Each field is sealed by its own piece of mathematics, and none of them needs a trusted setup. Drag the rail to look closer.</p></div>
+  <div class="lens-rail" id="lens-rail"><div class="lens-track" id="lens-track"></div></div>
+</section>
+
+<!-- live numbers -->
+<section class="live" id="live">
+  <div class="wrap">
+    <div class="hd"><h2>Straight from the <em>running chain</em></h2><p>Read from this node's API and refreshed the moment each block lands. Nothing here is typed in by hand.</p></div>
+    <div class="meter">
+      <div class="m-top"><span class="cap"><i class="dot-live"></i><span id="live-status">connecting</span></span><span class="cap" id="live-tip"></span></div>
+      <div class="m-stats">
+        <div><b data-count="height">—</b><span>block height</span></div>
+        <div><b data-count="avg">—</b><span>average block</span></div>
+        <div><b data-count="outputs">—</b><span>private outputs</span></div>
+        <div><b data-count="quantum">—</b><span>quantum outputs</span></div>
+      </div>
+      <div class="pulse" id="pulse-box"><canvas id="pulse" aria-label="Seconds between recent blocks"></canvas><div class="pulse-tip" id="pulse-tip"></div></div>
+      <div class="pulse-ax"><span id="px-from"></span><span class="cap">seconds between blocks · <i class="tgt"></i> target 30 s</span><span id="px-to"></span></div>
+      <div class="m-mini">
+        <div><span>transfers</span><b data-stat="transfers">—</b></div>
+        <div><span>key images</span><b data-stat="keyImages">—</b></div>
+        <div><span>difficulty</span><b data-stat="difficulty">—</b></div>
+        <div><span>hashrate</span><b data-stat="hashrate">—</b></div>
+        <div><span>trusted setups</span><b>0</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- compare -->
+<section class="cmp" id="compare">
+  <div class="wrap">
+    <div class="hd"><h2>What survives a <em>copied ledger?</em></h2><p>Three private designs, judged on the one question that matters once a chain has been archived: does what was recorded stay private after Q-day?</p></div>
+    <div class="mx-wrap"><div class="mx">
+      <div class="k hd2"></div><div class="me hd2"><img src="/img/mark.webp" width="26" height="26" alt=""><b>SELEN</b><span>selenq1 addresses</span></div><div class="o hd2"><b>Zcash</b><span>shielded pools</span></div><div class="o hd2"><b>Monero</b><span>default</span></div>
+      <div class="k">Receivers + amounts after Q-day</div><div class="me"><i class="ok-i"></i>Sealed</div><div class="o"><i class="no-i"></i>At risk*</div><div class="o"><i class="no-i"></i>At risk*</div>
+      <div class="k">Privacy</div><div class="me">Mandatory on every transfer</div><div class="o">Optional shielded pools</div><div class="o">Mandatory</div>
+      <div class="k">Finding payments</div><div class="me">ML-KEM-768, lattices</div><div class="o">Elliptic-curve Diffie–Hellman</div><div class="o">Elliptic-curve Diffie–Hellman</div>
+      <div class="k">Spend proofs rely on</div><div class="me">Ring of 16 today, hash-based at Perigee</div><div class="o">Halo 2 over elliptic curves</div><div class="o">Discrete log, ring of 16</div>
+      <div class="k last">Trusted setup</div><div class="me last">None</div><div class="o last">None for Orchard</div><div class="o last">None</div>
+    </div></div>
+    <p class="foot-note">* A quantum adversary who knows an address can derive its viewing key from the public key, then sweep an archived chain for every payment made to it.</p>
+  </div>
+</section>
+
+<!-- roadmap -->
+<section class="road" id="roadmap">
+  <div class="wrap">
+    <div class="hd"><h2>From testnet <em>to Perigee</em></h2><p>Three phases are running today. The next two move spend proofs off elliptic curves and start a fresh main chain.</p></div>
+    <div class="rail" id="rail">
+      <div class="rail-line"><i></i></div>
+      <div class="rp live"><span class="rp-dot"></span><div class="ph"><span>phase 1</span><span class="tag q">live</span></div><strong>Private testnet</strong><p>Ring signatures, one-time outputs, range proofs, ML-KEM quantum addresses, explorer, browser wallet and faucet.</p></div>
+      <div class="rp now"><span class="rp-dot"></span><div class="ph"><span>phase 2</span><span class="tag q">now</span></div><strong>$SELEN</strong><p>The token launches on Robinhood Chain and funds the road to mainnet.</p></div>
+      <div class="rp live"><span class="rp-dot"></span><div class="ph"><span>phase 3</span><span class="tag q">live</span></div><strong>Open mining</strong><p>Anyone mines from the browser or the CLI miner, with rewards paid to their own private address.</p></div>
+      <div class="rp"><span class="rp-dot"></span><div class="ph"><span>phase 4</span><span class="tag">planned</span></div><strong>Perigee</strong><p>Hash-based spend proofs and full-chain anonymity, specified, tested and reviewed in public.</p></div>
+      <div class="rp"><span class="rp-dot"></span><div class="ph"><span>phase 5</span><span class="tag">after review</span></div><strong>Mainnet</strong><p>A fresh genesis with Perigee active from the very first block.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- faq -->
+<section class="faq" id="faq">
+  <div class="wrap faq-in">
+    <div class="hd"><h2>Asked often. <em>Answered plainly.</em></h2></div>
+    <div class="qa">
+      <details open><summary>Is the testnet really private?<i></i></summary><p>Yes. Every transfer on the running testnet uses a real ring of sixteen, real one-time keys and real commitments with range proofs, and payments to <code>selenq1</code> addresses carry real ML-KEM-768 capsules. The explorer has no sender, receiver or amount to show you. Each transaction page has a button that re-runs the ring signatures, range proofs and balance check inside your own browser.</p></details>
+      <details><summary>What exactly is quantum-proof?<i></i></summary><p>The part that would leak backwards in time: who received what. Older private chains find receivers with elliptic-curve Diffie–Hellman, which Shor's algorithm breaks. SELEN quantum addresses carry an ML-KEM-768 public key, the lattice KEM NIST standardised as FIPS 203. A fresh secret is encapsulated for each payment and the 1,088-byte capsule travels with the output. Only the receiver can open it, quantum computer or not.</p></details>
+      <details><summary>Why still use ring signatures?<i></i></summary><p>They are fast, thoroughly studied, and no machine that breaks them exists today. If one appears, the most it can learn from a recorded ring is which of the sixteen members was really spent, not who received the money or how much. Receivers and amounts are what leak forever, so those are sealed first. Perigee replaces the ring with hash-based spend proofs.</p></details>
+      <details><summary>Where are my keys?<i></i></summary><p>Only in your browser. The wallet creates a 32-byte seed on your device, shows it as 24 words, encrypts it with your password and derives the spend key, view key and ML-KEM key from it. The node never sees any of them. Write the 24 words down: they are the only way back in.</p></details>
+      <details><summary>How do I mine?<i></i></summary><p>Open <a href="/mine">/mine</a>, paste a SELEN address or use your wallet's, and press start. Your browser computes Argon2id proof of work in background threads, and every block you find pays its reward to that address as a private output. For more hashrate, run the command-line miner against this node or your own.</p></details>
+      <details><summary>What is the difference between tSELEN and $SELEN?<i></i></summary><p>tSELEN is the testnet coin from the faucet and from mining. It has no value and will not carry over. $SELEN is the Robinhood Chain token that funds development and carries the project to mainnet.</p></details>
+      <details><summary>Can I run my own node?<i></i></summary><p>Yes. Node, explorer and wallet are a single open-source Node.js program. Run <code>npm install</code> and <code>npm start</code>, and set <code>PEER=</code> to a public node to download and re-verify the entire chain yourself.</p></details>
+      <details><summary>When is mainnet?<i></i></summary><p>After Perigee is written up, tested and reviewed in public. Mainnet starts from a new genesis with Perigee switched on at block one.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- start -->
+<!-- close · liquid metal horizon -->
+<section class="close" id="start">
+  <canvas id="gl3" aria-hidden="true"></canvas>
+  <div class="close-vig" aria-hidden="true"></div>
+  <div class="close-in wrap">
+    <span class="cap">start here</span>
+    <h2>Send something that<br><em>tells the chain nothing.</em></h2>
+    <p>Create a wallet in your browser, take tSELEN from the faucet and watch a payment cross the chain without leaving a name, a destination or a number behind.</p>
+    <div class="row"><a class="b l" href="/wallet">Open Wallet</a><a class="b" href="/explorer">Open Explorer</a><a class="b" href="/mine">Start mining</a></div>
+    <div class="close-ca"><span id="close-ca"></span></div>
+  </div>
+</section>
+
+<footer class="foot"></footer>
+<script type="module" src="/js/landing.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "SELEN",
+  "domain": "selen.network",
+  "ticker": "SELEN",
+  "testTicker": "tSELEN",
+  "ca": "",
+  "chain": "Robinhood Chain",
+  "chainId": 4663,
+  "x": "https://x.com/Selenseal",
+  "github": "",
+  "buyUrl": "https://ponsfamily.com/launchpad/{ca}",
+  "chartUrl": "https://dexscreener.com/robinhood/{ca}"
+}

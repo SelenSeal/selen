@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mine SELEN</title>
+<meta name="description" content="Mine the SELEN testnet from your browser. Argon2id proof of work, rewards paid to your own private address.">
+<link rel="icon" href="/favicon-32.png?v=5" type="image/png" sizes="32x32"><link rel="icon" href="/favicon.png?v=5" type="image/png" sizes="64x64"><link rel="apple-touch-icon" href="/apple-touch-icon.png?v=5">
+<link rel="stylesheet" href="/css/site.css"><link rel="stylesheet" href="/css/app.css">
+<script src="/config.js"></script>
+</head>
+<body>
+<header class="top"></header>
+<main class="wrap"><div class="inner">
+  <div class="page-head">
+    <div><span class="cap">SELEN testnet · mining</span><h1 class="h-l" style="margin-top:14px">Your CPU<br><em>is enough.</em></h1>
+      <p class="lead">Argon2id fills memory on every attempt, so a laptop competes with whatever else is out there. Each block you find pays its reward to your address as a private output.</p></div>
+    <div class="side"><span class="pill-live" id="netpill">connecting</span><span class="cap" id="netinfo"></span></div>
+  </div>
+  <div class="miner">
+    <section>
+      <div class="field"><label>Reward address</label><textarea class="input" id="addr" rows="3" spellcheck="false" placeholder="selenq1… or selen1…"></textarea></div>
+      <p class="note" id="addrnote">No address yet? <a class="ac" href="/wallet">Open a wallet</a> first; its quantum address fills in here.</p>
+      <div class="field"><label>Threads</label><div class="threads" id="threads"></div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn acc" id="go">Start mining</button><button class="btn" id="stop" disabled>Stop</button></div>
+      <p class="note">Mining uses this tab's CPU while it is open. Close the tab to stop.</p>
+    </section>
+    <section>
+      <span class="cap">Your hashrate</span>
+      <div class="rate"><span id="rate">0</span><small>H/s</small></div>
+      <div class="cores" id="cores"></div>
+      <div class="kv" style="grid-template-columns:1fr auto" id="mstats"></div>
+      <div class="log" id="log"><div class="dim2">idle</div></div>
+    </section>
+  </div>
+  <div class="panel pad" style="margin-top:30px"><span class="cap">Command-line miner</span>
+    <pre class="term" style="margin-top:14px;font:400 13px/1.8 var(--mono);padding:16px;border:1px solid var(--line2);background:var(--bg);overflow-x:auto">node tools/miner.mjs --node https://selen.network --address selenq1… --threads 4</pre>
+    <p class="note">Ships with the node. Same Argon2id work at native speed, on any machine with Node.js 24.</p>
+  </div>
+</div></main>
+<footer class="foot"></footer>
+<script type="module" src="/js/mine.js"></script>
+</body>
+</html>

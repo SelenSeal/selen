@@ -1,0 +1,22 @@
+node_modules/
+data/
+data-*/
+.env
+.env.*
+*.log
+.DS_Store
+# local only: design references, raw art, internal work pages, deploy script, dev genesis files
+_ref/
+art/
+public/_pilihan/
+public/_fonts/
+public/_concepts/
+deploy.sh
+tools/ref-shots.mjs
+config/genesis-*.json
+# only the two typefaces the site uses (the rest belong to the local font board)
+public/fonts/*
+!public/fonts/outfit-*.woff2
+!public/fonts/geist-mono-*.woff2
+!public/fonts/OFL-Outfit.txt
+!public/fonts/OFL-GeistMono.txt

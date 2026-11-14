@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SELEN Whitepaper</title>
+<meta name="description" content="SELEN: a private proof-of-work chain whose receivers and amounts stay sealed after Q-day. Design, construction, consensus and security analysis.">
+<link rel="icon" href="/favicon-32.png?v=5" type="image/png" sizes="32x32"><link rel="icon" href="/favicon.png?v=5" type="image/png" sizes="64x64"><link rel="apple-touch-icon" href="/apple-touch-icon.png?v=5">
+<link rel="stylesheet" href="/css/site.css"><link rel="stylesheet" href="/css/app.css">
+<script src="/config.js"></script>
+</head>
+<body>
+<header class="top"></header>
+<main class="wrap"><div class="inner">
+<article class="paper">
+  <span class="cap">Whitepaper · testnet edition · November 2026</span>
+  <h1 class="h-l" style="margin-top:16px">SELEN: sealed now,<br><em>sealed after Q-day</em></h1>
+  <p class="meta">Version 0.1 · describes the code running on selen-testnet-1 · BSD-3-Clause</p>
+
+  <div class="abstract"><p>Blockchains are permanent and copied by everyone, so their privacy has to last as long as the data does. Private payment systems in use today locate a payment's receiver with elliptic-curve Diffie–Hellman, which a large quantum computer breaks. Whoever archives such a chain today can later recover, for any known address, every payment it received. SELEN is a proof-of-work chain that keeps every transfer private by default and locates receivers with ML-KEM-768, a lattice key-encapsulation mechanism standardised as FIPS 203. Amounts are hidden by perfectly hiding Pedersen commitments with 48-bit range proofs; spends hide in rings of sixteen. We describe the construction, the consensus rules, what the design does and does not protect against a quantum adversary, and the planned move of spend proofs to hash-based constructions.</p></div>
+
+  <h2><small>1</small>The problem: store now, open later</h2>
+  <p>A ledger is replicated by design. Nothing published to it can be withdrawn, and anyone can keep a complete copy indefinitely at negligible cost. Privacy on such a ledger therefore has to resist not only today's adversary but every adversary who will ever hold that copy.</p>
+  <p>In a typical private payment, the sender publishes an ephemeral public key R = r·G with each output, and the receiver recognises the payment by computing b·R with their private view key b. Security rests on the hardness of discrete logarithms. Shor's algorithm computes discrete logarithms efficiently on a sufficiently large quantum computer. Given a receiver's published view key B, such a machine recovers b and, with it, the ability to scan any archived chain for every payment to that receiver and decrypt the amounts.</p>
+  <p>Not every part of a private transaction leaks in that way. Hiding commitments to amounts are information-theoretically hiding; nothing can open them later. The weak point is <b>payment detection</b>: the step that tells a receiver which outputs are theirs. SELEN replaces that step.</p>
+
+  <h2><small>2</small>Design goals</h2>
+  <ol>
+    <li><b>Privacy is mandatory.</b> There is no transparent transaction type to fall back to, and so no anonymity set split between users who opted in and users who did not.</li>
+    <li><b>Receivers and amounts survive Q-day.</b> A complete archive of the chain, combined with a future quantum computer, should not reveal who received a payment sent to a quantum address, or how much.</li>
+    <li><b>No trusted setup.</b> Every proof verifies against public parameters derived by hashing.</li>
+    <li><b>No privileged signers.</b> Ordering comes from proof of work; there is no key whose theft or coercion lets someone rewrite blocks.</li>
+    <li><b>Verifiable by anyone.</b> Every transfer can be re-checked in a browser from data the node serves.</li>
+  </ol>
+
+  <h2><small>3</small>Keys and addresses</h2>
+  <p>A wallet is a 32-byte seed. The spend scalar a, the view scalar b and an ML-KEM-768 key pair are derived from it with domain-separated SHA-512. The group is ristretto255; G is its base point and H a second generator obtained by hashing to the group, so its discrete logarithm with respect to G is unknown.</p>
+  <p>A quantum address encodes A = a·G, B = b·G and the 1,184-byte ML-KEM public key. A classic address encodes only A and B and exists for compatibility and shorter strings; payments to it are private today but not sealed against Q-day.</p>
+
+  <h2><small>4</small>Outputs</h2>
+  <p>For each output, the sender obtains a 32-byte shared secret ss. For a quantum address, ss comes from ML-KEM encapsulation and the 1,088-byte ciphertext ("capsule") is published with the output. For a classic address, ss is the encoding of r·B and R is published. From ss the sender derives the one-time key P = H<sub>s</sub>(ss)·G + A, the blinding factor y, an 8-byte encrypted amount and a one-byte view tag. The commitment is C = y·G + v·H.</p>
+  <p>The receiver tests each new output by decapsulation (or by computing b·R). ML-KEM decapsulation with the wrong key returns a pseudorandom value under implicit rejection, so non-matching outputs simply fail the view-tag and key checks. The spend secret for a matching output is x = H<sub>s</sub>(ss) + a.</p>
+
+  <h2><small>5</small>Transfers</h2>
+  <p>A transfer lists inputs, outputs, a public fee, one range proof per output and one signature per input.</p>
+  <p><b>Rings.</b> Each input references sixteen existing outputs by global index, sorted ascending. The signer proves, with an MLSAG signature over the rows (P<sub>j</sub>) and (C<sub>j</sub> − C′), that it knows x for one P<sub>π</sub> and the opening of C<sub>π</sub> − C′ at the same position, where C′ is a fresh pseudo-output commitment to the same amount.</p>
+  <p><b>Key images.</b> The signature exposes I = x·H<sub>p</sub>(P<sub>π</sub>). Since I depends only on the spent output, a repeated key image is a double spend and is rejected.</p>
+  <p><b>Balance.</b> The signer picks pseudo-output blinding factors that sum to the sum of the output blinding factors, so that ΣC′ = ΣC + fee·H holds as a group equation that any node can check.</p>
+  <p><b>Range proofs.</b> Each output commitment is decomposed into 48 bit commitments whose blinding factors sum to y. Each bit carries a two-key ring signature proving it commits to 0 or 1. Amounts are therefore confined to [0, 2<sup>48</sup>), which rules out values that wrap modulo the group order.</p>
+  <p>The signed message is a hash over the full transfer prefix, including the range proofs, so no component can be swapped after signing.</p>
+
+  <h2><small>6</small>Consensus</h2>
+  <p>Blocks are ordered by Argon2id proof of work over the header, using 2 MiB of memory per evaluation. The memory requirement keeps commodity CPUs, including browsers through WebAssembly, within reach of specialised hardware. Difficulty is retargeted every block by a linearly weighted moving average over 45 blocks, aiming at one block every 30 seconds. Nodes follow the valid chain with the greatest cumulative work.</p>
+  <p>The coinbase pays the block reward plus fees to a one-time key of the miner's choosing. Its amount is public, so that total supply can be audited from the chain; its receiver is hidden in the same way as any other output.</p>
+
+  <h2><small>7</small>Security against a quantum adversary</h2>
+  <p>We consider an adversary that holds a complete archive of the chain and, at some future time, can compute discrete logarithms in ristretto255.</p>
+  <ul>
+    <li><b>Receivers on quantum addresses remain hidden.</b> Linking an output to an address requires ss, which is protected by ML-KEM-768. Computing discrete logarithms of P or A does not help: for any candidate address, P − A has some discrete logarithm, and nothing on chain distinguishes the right one without ss.</li>
+    <li><b>Amounts remain hidden.</b> Pedersen commitments are perfectly hiding, the bit commitments in range proofs are perfectly hiding, and two-key ring signatures are perfectly anonymous. The encrypted amount is keyed by ss.</li>
+    <li><b>Spend anonymity does not survive.</b> With discrete logarithms the adversary can compute the key image of every ring member and so identify the real input. This links the spent output to the transfer; it does not reveal its owner or value.</li>
+    <li><b>Soundness does not survive.</b> Knowing log<sub>G</sub>(H) breaks the binding of commitments, which would allow inflation. This matters only once such a machine exists, and is addressed by Perigee.</li>
+  </ul>
+  <p>We consider this the right order of work. What leaks from an archive leaks permanently and to everyone, so the receiver and amount are sealed first. Soundness can be upgraded by a protocol change when needed; recorded privacy cannot.</p>
+
+  <h2><small>8</small>Perigee</h2>
+  <p>Perigee is the planned upgrade that moves spend proofs off elliptic curves. Its goals: membership proofs over the entire output set rather than a ring of sixteen, built from hash-based commitments and proof systems whose security rests on collision resistance; and a binding commitment scheme that does not depend on discrete logarithms. The specification, implementation and review will happen in public before mainnet, which will start from a fresh genesis with Perigee active from the first block.</p>
+
+  <h2><small>9</small>The token</h2>
+  <p>$SELEN is a token on Robinhood Chain that funds development through testnet, Perigee and mainnet. The testnet coin tSELEN is distinct and has no value.</p>
+
+  <h2><small>10</small>Status and limitations</h2>
+  <p>The public testnet runs the construction described above. The implementation is new and unaudited. Ring members are chosen by the wallet from a mix of recent and historical outputs; better decoy selection is an open item. Quantum addresses are long because they carry a full ML-KEM public key. The browser wallet downloads every output and scans locally, so the node never learns which outputs belong to it; when spending, it requests only the sixteen ring members together, the same set the transfer later publishes.</p>
+  <p>Comments and review are welcome.</p>
+</article>
+</div></main>
+<footer class="foot"></footer>
+<script type="module" src="/js/common.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+// Renders the 3D S on a transparent canvas so it can be saved as the flat logo (nav, footer, favicon).
+import * as THREE from "/vendor/three.js";
+import { kit } from "/js/smark.js";
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({ canvas: document.getElementById("c"), antialias: true, alpha: true, preserveDrawingBuffer: true });
+r.setPixelRatio(1);
+r.setSize(1024, 1024, false);
+r.toneMapping = THREE.ACESFilmicToneMapping;
+r.toneMappingExposure = 1.12;
+const K = kit(THREE);
+const scene = new THREE.Scene();
+scene.environment = K.studio(r);
+const cam = new THREE.PerspectiveCamera(26, 1, 0.1, 100);
+cam.position.set(0, 0, 13);
+const s = K.mark();
+s.scale.setScalar(+(q.get("scale") || 1.32));
+s.rotation.set(+(q.get("rx") || 0.1), +(q.get("ry") || -0.38), 0);
+scene.add(s);
+r.render(scene, cam);
+window.done = true;

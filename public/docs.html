@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SELEN Docs</title>
+<meta name="description" content="How SELEN works: addresses, one-time outputs, ML-KEM-768 capsules, ring signatures, range proofs, Argon2id consensus, running a node and the node API.">
+<link rel="icon" href="/favicon-32.png?v=5" type="image/png" sizes="32x32"><link rel="icon" href="/favicon.png?v=5" type="image/png" sizes="64x64"><link rel="apple-touch-icon" href="/apple-touch-icon.png?v=5">
+<link rel="stylesheet" href="/css/site.css"><link rel="stylesheet" href="/css/app.css">
+<script src="/config.js"></script>
+</head>
+<body>
+<header class="top"></header>
+<main class="wrap"><div class="inner">
+<div class="docs">
+  <aside id="toc">
+    <a href="#intro"><span>01</span>Introduction</a>
+    <a href="#start"><span>02</span>Quick start</a>
+    <a href="#addresses"><span>03</span>Addresses</a>
+    <a href="#outputs"><span>04</span>Outputs</a>
+    <a href="#transfers"><span>05</span>Transfers</a>
+    <a href="#consensus"><span>06</span>Consensus</a>
+    <a href="#params"><span>07</span>Parameters</a>
+    <a href="#node"><span>08</span>Running a node</a>
+    <a href="#mining"><span>09</span>Mining</a>
+    <a href="#api"><span>10</span>Node API</a>
+    <a href="#security"><span>11</span>Security model</a>
+    <a href="#token"><span>12</span>$SELEN</a>
+    <a href="#status"><span>13</span>Current status</a>
+  </aside>
+  <article class="doc">
+    <section id="intro">
+      <h2><small>01 · Introduction</small>What SELEN is</h2>
+      <p>SELEN is a proof-of-work Layer 1 where privacy is not a setting. Every transfer hides three things: which output was spent, who received the new outputs, and how much moved. The chain still lets anyone check that no coins were created from nothing and that nothing was spent twice.</p>
+      <p>What sets it apart is the receiver. Most private chains find a payment's receiver with elliptic-curve Diffie–Hellman. That works today, but a large quantum computer running Shor's algorithm would let anyone who knows an address go back through an archived chain and pick out every payment to it. SELEN quantum addresses use <b>ML-KEM-768</b>, the lattice key-encapsulation scheme standardised by NIST as FIPS 203, so recorded payments stay closed after that day.</p>
+      <p>The node, block explorer, browser wallet, faucet and miner are one open-source Node.js program. The public testnet runs on exactly the code described here.</p>
+    </section>
+
+    <section id="start">
+      <h2><small>02 · Quick start</small>From nothing to a private payment</h2>
+      <ol>
+        <li>Open the <a class="ac" href="/wallet">wallet</a> and create a wallet. Write down the 24 words and pick a password for this browser.</li>
+        <li>Open the <b>Faucet</b> tab and request tSELEN. The coins arrive after the next block.</li>
+        <li>Wait about five minutes. New outputs can sit in a ring once they have 10 confirmations.</li>
+        <li>Send some to a friend's <code>selenq1…</code> address. Open the transfer in the <a class="ac" href="/explorer">explorer</a> and press <b>Verify in your browser</b>.</li>
+        <li>Want more? Point the <a class="ac" href="/mine">miner</a> at your address.</li>
+      </ol>
+      <div class="callout">tSELEN is a test coin. It has no value and will not carry over to mainnet.</div>
+    </section>
+
+    <section id="addresses">
+      <h2><small>03 · Addresses</small>Two kinds of address</h2>
+      <p>A wallet is a 32-byte seed. Everything else is derived from it with domain-separated hashes:</p>
+      <pre>a   = H("selen/spend", seed)        spend key,  A = a·G
+b   = H("selen/view",  seed)        view key,   B = b·G
+kem = ML-KEM-768.KeyGen(SHA-512("selen/kem" ‖ seed))</pre>
+      <table>
+        <tr><th>Prefix</th><th>Contains</th><th>Finds payments with</th></tr>
+        <tr><td>selenq1…</td><td>A, B and the 1,184-byte ML-KEM public key</td><td>ML-KEM-768 decapsulation. Sealed against Q-day.</td></tr>
+        <tr><td>selen1…</td><td>A and B</td><td>Elliptic-curve Diffie–Hellman (r·B). Private today, not sealed against Q-day.</td></tr>
+      </table>
+      <p>Addresses use bech32m encoding. A quantum address is long, around 2,000 characters, because it carries a full lattice public key. Wallets copy it for you. Addresses never appear on chain.</p>
+    </section>
+
+    <section id="outputs">
+      <h2><small>04 · Outputs</small>How a payment is addressed</h2>
+      <p>For every output the sender derives a fresh shared secret with the receiver:</p>
+      <pre>quantum:  (capsule, ss) = ML-KEM-768.Encaps(kem_pk)     capsule = 1,088 bytes
+classic:  r random, R = r·G, ss = r·B
+
+s   = H("selen/key", ss)
+P   = s·G + A                      one-time key, unlinkable to the address
+y   = H("selen/mask", ss)          commitment blinding
+C   = y·G + v·H                    Pedersen commitment to the amount v
+ek  = v ⊕ SHA-256("selen/amount" ‖ ss)[0..8]
+tag = SHA-256("selen/tag" ‖ ss)[0]  one-byte view tag for fast scanning</pre>
+      <p>The receiver's wallet tries every new output. For quantum outputs it decapsulates the capsule with its ML-KEM secret key; for classic ones it computes b·R. If the view tag matches and s·G + A equals P, the output is theirs, and the amount and blinding factor open the commitment. The one-time secret key is x = s + a.</p>
+      <p>The group is <b>ristretto255</b>, a prime-order group, so there are no cofactor edge cases in ring signatures or key images. H is a second generator obtained by hashing to the curve, so nobody knows its discrete log with respect to G.</p>
+    </section>
+
+    <section id="transfers">
+      <h2><small>05 · Transfers</small>Rings, key images, balance</h2>
+      <h3>Rings of 16</h3>
+      <p>Each input names 16 outputs from the chain by global index: the real one plus 15 decoys picked by the wallet, sorted ascending so the position says nothing. The wallet signs with <b>MLSAG</b> over two rows: the one-time keys P<sub>j</sub>, and the commitment differences C<sub>j</sub> − C′, where C′ is the input's pseudo-output commitment.</p>
+      <h3>Key images</h3>
+      <p>Signing reveals I = x·H<sub>p</sub>(P). The same output always gives the same I, so nodes refuse any transfer whose key image is already on chain or already waiting in the mempool.</p>
+      <h3>Balance</h3>
+      <p>Pseudo-output masks are chosen so that ΣC′ = ΣC<sub>out</sub> + fee·H. Nodes check that equation without learning any amount.</p>
+      <h3>Range proofs</h3>
+      <p>Each output commitment is split into 48 bit commitments C<sub>i</sub> = r<sub>i</sub>·G + b<sub>i</sub>·2<sup>i</sup>·H, with Σr<sub>i</sub> = y. A two-member ring signature over {C<sub>i</sub>, C<sub>i</sub> − 2<sup>i</sup>H} proves each b<sub>i</sub> is 0 or 1. The amount is therefore between 0 and 2<sup>48</sup> − 1 and cannot wrap around the group order to mint coins.</p>
+      <h3>Fees</h3>
+      <p>0.0001 tSELEN per started 1,000 bytes. A typical two-output transfer to quantum addresses is about 17 kB.</p>
+    </section>
+
+    <section id="consensus">
+      <h2><small>06 · Consensus</small>Argon2id proof of work</h2>
+      <p>A block header holds version, height, previous block id, time, Merkle root of the transfers, difficulty and nonce. Its proof of work is Argon2id over the header bytes (2 MiB of memory, one pass, salt <code>SELEN-POW-v1-tst</code>). A header is valid when the 256-bit hash, read big-endian, is at most (2<sup>256</sup> − 1) / difficulty.</p>
+      <p>Difficulty retargets every block with a linearly weighted moving average over the last 45 solve times, aiming at 30 seconds. Timestamps must exceed the median of the last 11 blocks and may run at most 120 seconds ahead of a node's clock. Nodes follow the chain with the most cumulative work.</p>
+      <p>Nobody signs a block. There is no validator set, no stake and no block-signing key to steal.</p>
+      <h3>Emission</h3>
+      <p>The first transaction of each block is the coinbase. It pays 32 tSELEN plus fees to the miner's address as a one-time output. The reward halves every 1,051,200 blocks (about a year) down to a tail of 0.5 tSELEN. Coinbase amounts are public by design so anyone can audit supply; the receiver is still hidden.</p>
+    </section>
+
+    <section id="params">
+      <h2><small>07 · Parameters</small>Testnet constants</h2>
+      <table>
+        <tr><th>Constant</th><th>Value</th></tr>
+        <tr><td>network</td><td>selen-testnet-1</td></tr>
+        <tr><td>block time</td><td>30 s target, LWMA over 45 blocks</td></tr>
+        <tr><td>ring size</td><td>16</td></tr>
+        <tr><td>maturity</td><td>10 blocks before an output can sit in a ring</td></tr>
+        <tr><td>range proof</td><td>48 bits</td></tr>
+        <tr><td>KEM</td><td>ML-KEM-768 (FIPS 203), 1,184-byte keys, 1,088-byte capsules</td></tr>
+        <tr><td>group</td><td>ristretto255</td></tr>
+        <tr><td>proof of work</td><td>Argon2id, 2 MiB, t = 1, p = 1</td></tr>
+        <tr><td>units</td><td>1 tSELEN = 10<sup>8</sup> atomic units</td></tr>
+        <tr><td>limits</td><td>16 inputs, 16 outputs, 250 kB per transfer, 200 transfers or 4 MB per block</td></tr>
+        <tr><td>trusted setup</td><td>none</td></tr>
+      </table>
+    </section>
+
+    <section id="node">
+      <h2><small>08 · Running a node</small>Hold the chain yourself</h2>
+      <pre>npm install
+npm start                                   # own chain, built-in miner and faucet
+PEER=https://selen.network npm start       # follow the public testnet, verify every block</pre>
+      <p>With <code>PEER</code> set, the node downloads blocks in batches and re-checks proof of work, timestamps, difficulty, every ring signature, every range proof, every balance equation and every key image before it stores anything. If the peer shows a branch with more work, the node rolls back to the fork point and follows it. Transfers and blocks you submit locally are forwarded to the peer.</p>
+      <table>
+        <tr><th>Variable</th><th>Meaning</th></tr>
+        <tr><td>PORT</td><td>HTTP port, default 9310</td></tr>
+        <tr><td>DATA_DIR</td><td>where chain.db lives</td></tr>
+        <tr><td>MINER</td><td>0 to disable the built-in miner</td></tr>
+        <tr><td>MINER_THREADS / MINER_DUTY</td><td>threads, and the fraction of time they work</td></tr>
+        <tr><td>MINER_ADDRESS</td><td>reward address for the built-in miner</td></tr>
+        <tr><td>FAUCET</td><td>0 to disable the faucet</td></tr>
+      </table>
+    </section>
+
+    <section id="mining">
+      <h2><small>09 · Mining</small>Browser and command line</h2>
+      <p><a class="ac" href="/mine">/mine</a> runs Argon2id (WebAssembly) in one Web Worker per thread. It asks the node for a job tied to your address, searches nonces, and submits a block when the hash meets the target.</p>
+      <pre>node tools/miner.mjs --node https://selen.network --address selenq1… --threads 4</pre>
+      <p>The command-line miner uses Node's native Argon2id and the same job API. Each found block pays its full reward to your address.</p>
+    </section>
+
+    <section id="api">
+      <h2><small>10 · Node API</small>Everything the site reads</h2>
+      <p>All responses are JSON. Amounts are strings in atomic units.</p>
+      <table>
+        <tr><th>Endpoint</th><th>Returns</th></tr>
+        <tr><td>GET /api/status</td><td>height, tip, difficulty, hashrate, output and key-image counts, mempool size</td></tr>
+        <tr><td>GET /api/events</td><td>server-sent events: block, mempool, rollback</td></tr>
+        <tr><td>GET /api/blocks?before=&amp;limit=</td><td>block summaries, newest first</td></tr>
+        <tr><td>GET /api/block/:height|:id</td><td>header, Argon2id hash, transfers</td></tr>
+        <tr><td>GET /api/tx/:id</td><td>full transfer plus resolved ring members, for in-browser verification</td></tr>
+        <tr><td>GET /api/outputs?from=&amp;limit=</td><td>outputs by global index, for wallet scanning</td></tr>
+        <tr><td>GET /api/ring?ids=</td><td>keys and commitments of the given outputs</td></tr>
+        <tr><td>GET /api/keyimages?from=</td><td>spent key images since a height, plus pending ones</td></tr>
+        <tr><td>POST /api/tx</td><td>submit a signed transfer</td></tr>
+        <tr><td>GET /api/mining/job?address=</td><td>header template, target, Argon2id parameters</td></tr>
+        <tr><td>POST /api/mining/submit</td><td>{ job, nonce } → accepted block</td></tr>
+        <tr><td>POST /api/faucet</td><td>{ address } → testnet coins (one per address per 12 h)</td></tr>
+        <tr><td>GET /api/sync/blocks?from=</td><td>raw blocks for peers</td></tr>
+      </table>
+    </section>
+
+    <section id="security">
+      <h2><small>11 · Security model</small>What holds, and against whom</h2>
+      <table>
+        <tr><th>Property</th><th>Today</th><th>Against a quantum adversary</th></tr>
+        <tr><td>receiver, quantum address</td><td>hidden</td><td>hidden: ML-KEM-768</td></tr>
+        <tr><td>receiver, classic address</td><td>hidden</td><td>exposed to anyone who knows the address</td></tr>
+        <tr><td>amount</td><td>hidden</td><td>hidden: Pedersen commitments hide perfectly, and the encrypted amount is keyed by the KEM secret</td></tr>
+        <tr><td>which ring member was spent</td><td>hidden among 16</td><td>can be revealed: key images rest on discrete log</td></tr>
+        <tr><td>no inflation</td><td>sound</td><td>needs Perigee: binding of commitments rests on discrete log</td></tr>
+      </table>
+      <p>Put plainly: a future quantum computer could tell which of the sixteen ring members a recorded input really spent, and in principle forge new spends. It could not tell who received a payment sent to a <code>selenq1</code> address, or how much. Perigee moves spend proofs to hash-based constructions to close the first two gaps.</p>
+      <div class="callout">The code is new and has not been audited. Treat the testnet as an experiment.</div>
+    </section>
+
+    <section id="token">
+      <h2><small>12 · $SELEN</small>The token</h2>
+      <p>$SELEN is a token on Robinhood Chain that funds development and carries the project to mainnet. It is separate from tSELEN, the testnet coin.</p>
+      <p id="ca-line">Contract address: published at launch.</p>
+    </section>
+
+    <section id="status">
+      <h2><small>13 · Current status</small>Where things stand</h2>
+      <ul>
+        <li><b>Live:</b> private testnet, quantum addresses, explorer with in-browser verification, browser wallet, faucet, browser and CLI mining, peer sync.</li>
+        <li><b>Now:</b> $SELEN on Robinhood Chain.</li>
+        <li><b>Planned:</b> Perigee: hash-based spend proofs and full-chain anonymity, specified and reviewed in public.</li>
+        <li><b>After review:</b> mainnet from a fresh genesis with Perigee active at block one.</li>
+      </ul>
+    </section>
+  </article>
+</div>
+</div></main>
+<footer class="foot"></footer>
+<script type="module" src="/js/docs.js"></script>
+</body>
+</html>
