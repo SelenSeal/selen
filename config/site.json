@@ -7,7 +7,7 @@
   "chain": "Robinhood Chain",
   "chainId": 4663,
   "x": "https://x.com/Selenseal",
-  "github": "",
+  "github": "https://github.com/SelenSeal/selen",
   "buyUrl": "https://ponsfamily.com/launchpad/{ca}",
   "chartUrl": "https://dexscreener.com/robinhood/{ca}"
 }
